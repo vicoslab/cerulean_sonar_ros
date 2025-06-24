@@ -1,0 +1,18 @@
+<launch>
+
+    <!-- TF links-->
+    <param name="robot_description" textfile="$(find cerulean_sonar_ros)/urdf/rovlocatormk2.urdf" />
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
+
+    <!-- RViz demo config -->
+    <arg name="rvizconfig" default="$(find cerulean_sonar_ros)/rviz/rovlocatormk2.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
+
+    <!-- Serial driver-->
+    <node name="rov_locator_mk2_node" pkg="cerulean_sonar_ros" type="rov_locator_mk2_node.py" output="screen">
+        <param name="port" value="/dev/ttyUSB0"/>
+        <param name="frame_id" value="locator"/>
+        <param name="publish_nmea_string" value="True"/>
+    </node>
+
+</launch>

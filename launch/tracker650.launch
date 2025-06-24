@@ -1,0 +1,27 @@
+<launch>
+
+    <!-- TF links-->
+    <param name="robot_description" textfile="$(find cerulean_sonar_ros)/urdf/tracker650.urdf" />
+    <node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"/>
+
+    <!-- RViz demo config -->
+    <arg name="rvizconfig" default="$(find cerulean_sonar_ros)/rviz/tracker650.rviz" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="true" />
+
+    <!-- UDP driver -->
+    <node name="dvl_socket_node" pkg="cerulean_sonar_ros" type="tracker650_dvl_socket_node.py" output="screen">
+        <rosparam param="command_list">
+            ["SEND-DVKFC ON\n", "SEND-DVPDL OFF\n", "SET-SPEED-OF-SOUND 1510\n"]
+        </rosparam>
+        <param name="ip" value="192.168.2.3"/>
+        <param name="command_port" value="50000"/>
+        <param name="listen_port" value="27000"/>
+        <param name="frame_id" value="dvl"/>
+    </node>
+
+    <!-- NMEA parser-->
+    <node name="dvl_nmea_parser_node" pkg="cerulean_sonar_ros" type="tracker650_dvl_nmea_parser_node.py" output="screen">
+        <param name="frame_id" value="dvl"/>
+    </node>
+
+</launch>

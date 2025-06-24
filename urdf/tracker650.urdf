@@ -1,0 +1,33 @@
+<robot name="tracker650">
+
+	<link name="dvl"/>
+	<link name="dvl_beam_a"/>
+	<link name="dvl_beam_b"/>
+	<link name="dvl_beam_c"/>
+    <link name="dvl_beam_center"/>
+
+	<joint name="dvl_to_beam_a" type="fixed">
+		<parent link="dvl"/>
+		<child link="dvl_beam_a"/>
+		<origin xyz="0.035 0 0" rpy="0 1.22173 0" />
+	</joint>
+
+	<joint name="dvl_to_beam_b" type="fixed">
+		<parent link="dvl"/>
+		<child link="dvl_beam_b"/>
+		<origin xyz="-0.017 0.03 0" rpy="0 1.22173 2.0944" />
+	</joint>
+
+	<joint name="dvl_to_beam_c" type="fixed">
+		<parent link="dvl"/>
+		<child link="dvl_beam_c"/>
+		<origin xyz="-0.017 -0.03 0" rpy="0 1.22173 -2.0944" />
+	</joint>
+
+    	<joint name="dvl_to_beam_center" type="fixed">
+		<parent link="dvl"/>
+		<child link="dvl_beam_center"/>
+		<origin xyz="0 0 0" rpy="0 1.5708 0" />
+	</joint>
+
+</robot>

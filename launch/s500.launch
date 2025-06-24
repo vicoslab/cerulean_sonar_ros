@@ -1,0 +1,8 @@
+<launch>
+    <node name="s500_sonar_node" pkg="cerulean_sonar_ros" type="s500_sonar_node.py" output="screen">
+        <param name="host" value="192.168.2.92"/>
+        <param name="port" value="51200"/>
+        <param name="frame_id" value="sonar_link"/>
+        <param name="field_of_view" value="0.0872665"/>
+    </node>
+</launch>

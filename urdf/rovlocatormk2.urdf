@@ -1,0 +1,12 @@
+<robot name="rovlocatormk2">
+
+	<link name="locator"/>
+	<link name="seabed"/>
+
+	<joint name="seabed_to_locator" type="fixed">
+		<parent link="seabed"/>
+		<child link="locator"/>
+		<origin xyz="0 0 0.8" rpy="0 0 0" />
+	</joint>
+
+</robot>
