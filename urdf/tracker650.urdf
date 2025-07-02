@@ -24,7 +24,7 @@
 		<origin xyz="-0.017 -0.03 0" rpy="0 1.22173 -2.0944" />
 	</joint>
 
-    	<joint name="dvl_to_beam_center" type="fixed">
+    <joint name="dvl_to_beam_center" type="fixed">
 		<parent link="dvl"/>
 		<child link="dvl_beam_center"/>
 		<origin xyz="0 0 0" rpy="0 1.5708 0" />
