@@ -8,18 +8,21 @@ import numpy as np
 from std_msgs.msg import Header
 from cerulean_sonar_ros.msg import OmniscanRaw
 
+from dynamic_reconfigure.server import Server
+from cerulean_sonar_ros.cfg import Omniscan450Config
+
 class O450CDriver:
 	def __init__(self):
 
 		rospy.init_node('o450c_socker_driver_node')
 
-		self.param_host = rospy.get_param('~host', '192.168.2.25')
+		self.param_ip = rospy.get_param('~ip', '192.168.2.25')
 		self.param_port = rospy.get_param('~port', 51200)
 		self.param_frame_id = rospy.get_param('~frame_id', 'omniscan_link')
 
 		self.param_min_range = rospy.get_param('~start_range_meters', 0)
 		self.param_max_range = rospy.get_param('~end_range_meters', 50)
-		self.param_num_data_points = rospy.get_param('~num_data_points', 600)
+		self.param_num_data_points = rospy.get_param('~num_data_points', 200)
 
 		self.param_speed_of_sound = rospy.get_param('~speed_of_sound', 1515)
 
@@ -30,13 +33,32 @@ class O450CDriver:
 		self.pulse_len_percent = 0.002
 		self.filter_duration_percent = 0.0015
 		self.gain_index = -1            # -1 for auto gain
-		self.num_data_points = 600
 
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.sock.settimeout(5.0)
-		self.sock.connect((self.param_host, self.param_port))
+		self.sock.connect((self.param_ip, self.param_port))
 
 		self.set_speed_of_sound(self.param_speed_of_sound)
+
+		self.dynamic_reconfigure_server = Server(Omniscan450Config, self.reconfig_callback)
+
+	def reconfig_callback(self, config, level):
+		rospy.loginfo(f"Reconfigure Request: min_range={config['min_range']}, "
+					  f"max_range={config['max_range']}, n_points={config['n_points']}, "
+					  f"speed_of_sound={config['speed_of_sound']}")
+
+		self.param_min_range = config["min_range"]
+		self.param_max_range = config["max_range"]
+		self.param_num_data_points = config["n_points"]
+		self.param_speed_of_sound = config["speed_of_sound"]
+
+		self.set_speed_of_sound(self.param_speed_of_sound)
+		self.stop_pinging()
+		time.sleep(0.1)
+		self.start_pinging()
+
+		return config
+
 
 	def create_packet(self, packet_id, payload=b''):
 		# 'BR' + u16 payload_len + u16 packet_id + u8 rsvd + u8 rsvd + payload + u16 checksum
@@ -68,15 +90,15 @@ class O450CDriver:
 			#checksum
 			calc = (sum(header + payload) & 0xFFFF)
 			if calc != struct.unpack('<H', rx_checksum_bytes)[0]:
-				 print("Checksum mismatch")
-				 return None, None
-
+				print("Checksum mismatch")
+				return None, None
+			
 			return packet_id, payload
 		except socket.timeout:
 			return None, None
 
 	def set_speed_of_sound(self, speed: int):
-		payload = struct.pack('<I', speed*10)#decimeters per second, because...?
+		payload = struct.pack('<I', speed)
 		pkt = self.create_packet(116, payload)
 		self.sock.sendall(pkt)
 		rospy.loginfo("Set speed of sound to "+str(speed))

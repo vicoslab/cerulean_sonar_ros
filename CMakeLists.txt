@@ -14,6 +14,10 @@ add_message_files(
   OmniscanRaw.msg
 )
 
+generate_dynamic_reconfigure_options(
+    cfg/Omniscan450.cfg
+)
+
 generate_messages(
   DEPENDENCIES
   std_msgs
