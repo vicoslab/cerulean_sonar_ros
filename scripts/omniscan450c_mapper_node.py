@@ -52,8 +52,7 @@ class SideScanStitcher:
 		if msg.data != self.mapping_enabled:
 			self.mapping_enabled = msg.data
 			self.enable_pub.publish(self.mapping_enabled)
-
-		rospy.loginfo("Mapping %s", "ENABLED" if self.mapping_enabled else "DISABLED")
+			rospy.loginfo("Mapping %s", "ENABLED" if self.mapping_enabled else "DISABLED")
 
 	def expand_grid_to_include(self, x_min, x_max, y_min, y_max):
 		"""Expand global grid if needed to cover new bounds in world frame."""

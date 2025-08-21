@@ -22,16 +22,16 @@ class O450CDriver:
 
 		self.param_min_range = rospy.get_param('~start_range_meters', 0)
 		self.param_max_range = rospy.get_param('~end_range_meters', 50)
-		self.param_num_data_points = rospy.get_param('~num_data_points', 200)
+		self.param_num_data_points = rospy.get_param('~num_data_points', 600)
 
 		self.param_speed_of_sound = rospy.get_param('~speed_of_sound', 1515)
 
 		self.raw_pub = rospy.Publisher("/omniscan/raw", OmniscanRaw, queue_size=10)
 
 		#https://docs.ceruleansonar.com/c/omniscan-450/application-programming-interface
-		self.msec_per_ping = 0          # 0 for best rate
 		self.pulse_len_percent = 0.002
 		self.filter_duration_percent = 0.0015
+		self.msec_per_ping = 0          # 0 for best rate
 		self.gain_index = -1            # -1 for auto gain
 
 		self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
