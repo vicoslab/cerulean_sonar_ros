@@ -15,8 +15,8 @@ class O450CParser:
 		self.param_frame_id = rospy.get_param('~frame_id', 'omniscan_link')
 
 		# Display scaling parameters
-		self.param_min_db = rospy.get_param('~min_db', -20.0)   # lower display bound in dB
-		self.param_max_db = rospy.get_param('~max_db', 67.0)     # upper display bound in dB
+		self.param_min_db = rospy.get_param('~min_db', 5.0)   # lower display bound in dB
+		self.param_max_db = rospy.get_param('~max_db', 100.0)     # upper display bound in dB
 		self.param_gamma  = rospy.get_param('~gamma', 1.5)      # gamma correction (>1 boosts midtones)
 
 		self.raw_sub = rospy.Subscriber("/omniscan/raw", OmniscanRaw, self.raw_callback)
@@ -24,10 +24,40 @@ class O450CParser:
 		self.heading_pub = rospy.Publisher('/omniscan/heading', Float32, queue_size=10)
 		self.profile_pub = rospy.Publisher('/omniscan/tof_profile', OccupancyGrid, queue_size=10)
 
-	def scale_power(self, msg):
-		"""Scale raw power results into dB values as per BR ping-python mapping."""
+	def scale_power(self, msg, gain_start=0.25, gain_end=1.6):
+		"""
+		Scale raw power results into dB values as per BR ping-python mapping,
+		with an additional index-based gain filter (linear ramp).
+		
+		Parameters
+		----------
+		msg : object
+			Must have attributes `pwr_results`, `min_pwr_db`, `max_pwr_db`.
+		gain_start : float
+			Gain multiplier at the first sample (default 0.1).
+		gain_end : float
+			Gain multiplier at the last sample (default 1.0).
+		
+		Returns
+		-------
+		scaled_power : ndarray
+			Array of scaled power values with applied gain ramp.
+		"""
 		raw = np.array(msg.pwr_results, dtype=np.float64)
+
+		# Map raw power to dB
 		scaled_power = msg.min_pwr_db + (raw / 65535.0) * (msg.max_pwr_db - msg.min_pwr_db)
+
+		# Build linear gain ramp from gain_start to gain_end
+		n = len(raw)
+		if n > 1:
+			gain = np.linspace(gain_start, gain_end, n)
+		else:  # single-sample edge case
+			gain = np.array([gain_start])
+
+		# Apply gain filter
+		scaled_power *= gain
+
 		return scaled_power
 
 	def apply_display_mapping(self, db_array):
@@ -43,8 +73,8 @@ class O450CParser:
 			norm = np.power(norm, 1.0 / self.param_gamma)
 
 		# Scale to 0–255
-		img = (norm * 255.0).astype(np.uint8)
-		img = 255 - img
+		img = (norm * 1.4 * 255.0).astype(np.uint8)
+		#img = 255 - img
 
 		return img
 

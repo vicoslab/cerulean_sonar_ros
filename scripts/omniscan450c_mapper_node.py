@@ -10,6 +10,29 @@ from nav_msgs.msg import OccupancyGrid
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Empty, Bool
 
+def bresenham_line(x0, y0, x1, y1):
+	"""Return list of (x, y) pixels along a line from (x0,y0) to (x1,y1)."""
+	points = []
+	dx = abs(x1 - x0)
+	dy = abs(y1 - y0)
+	sx = 1 if x0 < x1 else -1
+	sy = 1 if y0 < y1 else -1
+	err = dx - dy
+
+	while True:
+		points.append((x0, y0))
+		if x0 == x1 and y0 == y1:
+			break
+		e2 = 2 * err
+		if e2 > -dy:
+			err -= dy
+			x0 += sx
+		if e2 < dx:
+			err += dx
+			y0 += sy
+	return points
+
+
 class SideScanStitcher:
 	def __init__(self):
 		rospy.init_node("sonar_map_stitcher")
@@ -25,6 +48,7 @@ class SideScanStitcher:
 		self.height = 0
 		self.updated = False
 		self.mapping_enabled = True
+		self.last_scan = None 
 
 		self.tf_buffer = tf2_ros.Buffer()
 		self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
@@ -102,16 +126,27 @@ class SideScanStitcher:
 		self.width = new_width
 		self.height = new_height
 
+	def paint_beam(self, x0, y0, x1, y1, val):
+		"""Rasterize a sonar beam from (x0,y0) -> (x1,y1) into the grid."""
+		gx0 = int(np.floor((x0 - self.origin_x) / self.resolution))
+		gy0 = int(np.floor((y0 - self.origin_y) / self.resolution))
+		gx1 = int(np.floor((x1 - self.origin_x) / self.resolution))
+		gy1 = int(np.floor((y1 - self.origin_y) / self.resolution))
 
-	
+		points = bresenham_line(gx0, gy0, gx1, gy1)
+
+		for gx, gy in points:
+			if 0 <= gx < self.width and 0 <= gy < self.height:
+				self.grid[gy, gx] = val
+
+
 	def sonar_data_callback(self, msg):
-
 		if not self.mapping_enabled:
 			self.updated = True
 			return
 
 		try:
-			# Get transform from sonar frame to world frame
+			# Transform sonar origin into world
 			pose = PoseStamped()
 			pose.header = msg.header
 			pose.pose.orientation.w = 1.0
@@ -122,7 +157,6 @@ class SideScanStitcher:
 			x0 = pose_world.pose.position.x
 			y0 = pose_world.pose.position.y
 
-			# Extract yaw from transform rotation
 			q = transform.transform.rotation
 			_, _, yaw = euler_from_quaternion([q.x, q.y, q.z, q.w])
 
@@ -130,32 +164,55 @@ class SideScanStitcher:
 			rospy.logwarn_throttle(5.0, f"TF lookup failed: {e}")
 			return
 
-		# Bounds of this scan in world coords (roughly)
+		# Scan parameters
 		scan_len = msg.info.width * msg.info.resolution
 		x_min = x0 - scan_len
 		x_max = x0 + scan_len
 		y_min = y0 - scan_len
 		y_max = y0 + scan_len
-
 		self.expand_grid_to_include(x_min, x_max, y_min, y_max)
 
-		# Paint data with yaw rotation
 		cos_yaw = math.cos(yaw)
 		sin_yaw = math.sin(yaw)
 
+		# Compute world coordinates of this ping line
+		positions = []
 		for i, val in enumerate(msg.data):
 			r = i * msg.info.resolution
 			wx = x0 + r * cos_yaw
 			wy = y0 + r * sin_yaw
+			positions.append((wx, wy))
+		positions = np.array(positions)
+		values = np.array(msg.data)
 
-			gx = int(np.floor((wx - self.origin_x) / self.resolution))
-			gy = int(np.floor((wy - self.origin_y) / self.resolution))
+		# If we have a previous scan, interpolate between them
+		if self.last_scan is not None:
+			prev_positions, prev_values = self.last_scan
 
-			if 0 <= gx < self.width and 0 <= gy < self.height:
-				self.grid[gy, gx] = val
+			if len(prev_positions) == len(positions):  # only if sonar settings unchanged
+				n = len(positions)
+				for i in range(n):
+					x1, y1 = prev_positions[i]
+					x2, y2 = positions[i]
+					v1, v2 = prev_values[i], values[i]
+
+					gx1 = int(np.floor((x1 - self.origin_x) / self.resolution))
+					gy1 = int(np.floor((y1 - self.origin_y) / self.resolution))
+					gx2 = int(np.floor((x2 - self.origin_x) / self.resolution))
+					gy2 = int(np.floor((y2 - self.origin_y) / self.resolution))
+
+					points = bresenham_line(gx1, gy1, gx2, gy2)
+
+					for j, (gx, gy) in enumerate(points):
+						if 0 <= gx < self.width and 0 <= gy < self.height:
+							t = j / max(1, len(points) - 1)
+							val = int(round(v1 + t * (v2 - v1)))
+							self.grid[gy, gx] = val
+
+		# Save this scan for the next interpolation
+		self.last_scan = (positions, values)
 
 		self.updated = True
-
 	def update(self, event):
 		if not self.updated or self.grid is None:
 			return
