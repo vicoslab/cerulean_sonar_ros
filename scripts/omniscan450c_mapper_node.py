@@ -37,6 +37,7 @@ class SideScanStitcher:
 	def __init__(self):
 		rospy.init_node("sonar_map_stitcher")
 
+		self.nadir_range = rospy.get_param("~nadir_removal_range", 3.0)
 		self.world_frame = rospy.get_param("~world_frame_id", "local")
 		self.resolution = rospy.get_param("~resolution", 0.2)  # meters per pixel
 		self.publish_rate = rospy.get_param("~publish_rate_hz", 1.0)  # Hz
@@ -93,7 +94,7 @@ class SideScanStitcher:
 			self.origin_y = np.floor(y_min / self.resolution) * self.resolution
 			self.width = int(np.ceil((x_max - self.origin_x) / self.resolution))
 			self.height = int(np.ceil((y_max - self.origin_y) / self.resolution))
-			self.grid = np.zeros((self.height, self.width), dtype=np.int8)
+			self.grid = np.zeros((self.height, self.width), dtype=np.int16)
 			return
 
 		# Current bounds in index space
@@ -112,7 +113,7 @@ class SideScanStitcher:
 		new_height = new_gy_max - new_gy_min
 
 		# Allocate new grid
-		new_grid = np.zeros((new_height, new_width), dtype=np.int8)
+		new_grid = np.zeros((new_height, new_width), dtype=np.int16)
 
 		# Copy old grid into correct place
 		off_x = -new_gx_min
@@ -179,35 +180,47 @@ class SideScanStitcher:
 		positions = []
 		for i, val in enumerate(msg.data):
 			r = i * msg.info.resolution
-			wx = x0 + r * cos_yaw
-			wy = y0 + r * sin_yaw
-			positions.append((wx, wy))
+
+			if r > self.nadir_range:
+				wx = x0 + r * cos_yaw
+				wy = y0 + r * sin_yaw
+				positions.append((wx, wy))
+
 		positions = np.array(positions)
-		values = np.array(msg.data)
+		
+		#values = np.array(msg.data)
+		values = np.array(msg.data, dtype=np.int16)
+		values[values < 0] += 256 
 
 		# If we have a previous scan, interpolate between them
 		if self.last_scan is not None:
 			prev_positions, prev_values = self.last_scan
 
-			if len(prev_positions) == len(positions):  # only if sonar settings unchanged
-				n = len(positions)
-				for i in range(n):
-					x1, y1 = prev_positions[i]
-					x2, y2 = positions[i]
-					v1, v2 = prev_values[i], values[i]
+			if len(prev_positions) != len(positions):
+				#scan settings changed, can't interpolate
+				return
 
-					gx1 = int(np.floor((x1 - self.origin_x) / self.resolution))
-					gy1 = int(np.floor((y1 - self.origin_y) / self.resolution))
-					gx2 = int(np.floor((x2 - self.origin_x) / self.resolution))
-					gy2 = int(np.floor((y2 - self.origin_y) / self.resolution))
+			n = len(positions)
+			for i in range(n):
+				x1, y1 = prev_positions[i]
+				x2, y2 = positions[i]
+				v1, v2 = prev_values[i], values[i]
 
-					points = bresenham_line(gx1, gy1, gx2, gy2)
+				gx1 = int(np.floor((x1 - self.origin_x) / self.resolution))
+				gy1 = int(np.floor((y1 - self.origin_y) / self.resolution))
+				gx2 = int(np.floor((x2 - self.origin_x) / self.resolution))
+				gy2 = int(np.floor((y2 - self.origin_y) / self.resolution))
 
-					for j, (gx, gy) in enumerate(points):
-						if 0 <= gx < self.width and 0 <= gy < self.height:
-							t = j / max(1, len(points) - 1)
-							val = int(round(v1 + t * (v2 - v1)))
-							self.grid[gy, gx] = val
+				points = bresenham_line(gx1, gy1, gx2, gy2)
+
+				for j, (gx, gy) in enumerate(points):
+					if 0 <= gx < self.width and 0 <= gy < self.height:
+						t = j / max(1, len(points) - 1)
+						#val = int(round(v1 + t * (v2 - v1)))
+						#self.grid[gy, gx] = val
+						val = int(round(v1 + t * (v2 - v1)))
+						val = 0 if val < 0 else (255 if val > 255 else val)
+						self.grid[gy, gx] = val
 
 		# Save this scan for the next interpolation
 		self.last_scan = (positions, values)
@@ -227,7 +240,7 @@ class SideScanStitcher:
 		out.info.origin.position.x = self.origin_x
 		out.info.origin.position.y = self.origin_y
 		out.info.origin.orientation.w = 1.0
-		out.data = self.grid.flatten().tolist()
+		out.data = self.grid.astype(np.int8).flatten().tolist()
 
 		self.pub.publish(out)
 

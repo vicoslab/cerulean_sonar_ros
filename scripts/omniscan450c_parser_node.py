@@ -15,6 +15,7 @@ class O450CParser:
 		self.param_frame_id = rospy.get_param('~frame_id', 'omniscan_link')
 
 		# Display scaling parameters
+		self.param_sampling = rospy.get_param('~sampling', 1.0) # Up or downsample scan
 		self.param_min_db = rospy.get_param('~min_db', 5.0)   # lower display bound in dB
 		self.param_max_db = rospy.get_param('~max_db', 100.0)     # upper display bound in dB
 		self.param_gamma  = rospy.get_param('~gamma', 1.5)      # gamma correction (>1 boosts midtones)
@@ -78,6 +79,18 @@ class O450CParser:
 
 		return img
 
+	def resample(self, arr):		
+		n = len(arr)
+		new_n = int(np.round(n * self.param_sampling))
+		if new_n < 2:
+			return arr[:1].copy()  # edge case: collapse to single element
+		
+		# Original and new index positions
+		orig_idx = np.linspace(0, 1, n)
+		new_idx = np.linspace(0, 1, new_n)
+		
+		return np.interp(new_idx, orig_idx, arr)
+
 	def raw_callback(self, msg):
 		heading = msg.transducer_heading_deg + msg.vehicle_heading_deg
 		self.heading_pub.publish(Float32(data=heading))
@@ -85,18 +98,26 @@ class O450CParser:
 		# Convert to dB and apply mapping
 		db_vals = self.scale_power(msg)
 		img_vals = self.apply_display_mapping(db_vals)
+		num = msg.num_results
+
+		# Resample if neededž
+		if self.param_sampling != 1.0:
+			img_resampled = self.resample(img_vals)
+			num = len(img_resampled)
+		else:
+			img_resampled = img_vals
 
 		# Fill OccupancyGrid
 		grid = OccupancyGrid()
 		grid.header.stamp = rospy.Time.now()
 		grid.header.frame_id = self.param_frame_id
-		grid.info.resolution = (msg.length_mm / 1000.0) / max(1, msg.num_results)
-		grid.info.width = msg.num_results
+		grid.info.resolution = (msg.length_mm / 1000.0) / max(1, num)
+		grid.info.width = num
 		grid.info.height = 1
 		grid.info.origin.position = Point(msg.start_mm / 1000.0, 0.0, 0.0)
 		grid.info.origin.orientation.w = 1.0
 
-		grid.data = img_vals.astype(np.int8).tolist()
+		grid.data = img_resampled.astype(np.int8).tolist()
 		self.profile_pub.publish(grid)
 
 
