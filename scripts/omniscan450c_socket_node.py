@@ -5,7 +5,7 @@ import time
 import rospy
 import numpy as np
 
-from std_msgs.msg import Header
+from std_msgs.msg import Header, Bool
 from cerulean_sonar_ros.msg import OmniscanRaw
 
 from dynamic_reconfigure.server import Server
@@ -42,6 +42,22 @@ class O450CDriver:
 
 		self.dynamic_reconfigure_server = Server(Omniscan450Config, self.reconfig_callback)
 
+		self.enabled = True
+		self.enabled_sub = rospy.Subscriber("/omniscan/enabled", Bool, self.enabled_callback)
+		self.enabled_pub = rospy.Publisher("/omniscan/enabled", Bool, queue_size=1, latch=True)
+		self.enabled_pub.publish(self.enabled)
+
+	def enabled_callback(self, msg):
+		if msg.data != self.enabled:
+			self.enabled = msg.data
+
+			if self.enabled:
+				self.start_pinging()
+			else:
+				self.stop_pinging()
+
+			self.enabled_pub.publish(self.enabled)
+
 	def reconfig_callback(self, config, level):
 		rospy.loginfo(f"Reconfigure Request: min_range={config['min_range']}, "
 					  f"max_range={config['max_range']}, n_points={config['n_points']}, "
@@ -53,9 +69,11 @@ class O450CDriver:
 		self.param_speed_of_sound = config["speed_of_sound"]
 
 		self.set_speed_of_sound(self.param_speed_of_sound)
-		self.stop_pinging()
-		time.sleep(0.1)
-		self.start_pinging()
+
+		if self.enabled:
+			self.stop_pinging()
+			time.sleep(0.1)
+			self.start_pinging()
 
 		return config
 
