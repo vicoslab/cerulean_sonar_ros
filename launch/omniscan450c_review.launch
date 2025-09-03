@@ -1,0 +1,22 @@
+<launch>
+
+    <arg name="frame_id" default="omniscan_link"/>
+
+    <!-- Raw data parser-->
+    <node name="omniscan_parser_node" pkg="cerulean_sonar_ros" type="omniscan450c_parser_node.py" output="screen">
+        <param name="frame_id" value="$(arg frame_id)"/>
+        <param name="sampling" value="2.0"/>
+        <param name="min_db" value="5.0"/>
+        <param name="max_db" value="100.0"/>
+        <param name="gamma" value="1.5"/>
+    </node>
+
+    <!-- Projector-->
+    <node name="omniscan_mapper_node" pkg="cerulean_sonar_ros" type="omniscan450c_mapper_node.py" output="screen">
+        <param name="nadir_removal_range" value="3.0"/>
+        <param name="world_frame_id" value="local"/>
+        <param name="resolution" value="0.1"/>
+        <param name="publish_rate_hz" value="10"/>
+    </node>
+
+</launch>
