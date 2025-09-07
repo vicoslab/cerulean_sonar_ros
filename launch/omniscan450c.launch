@@ -8,21 +8,26 @@
         <param name="port" value="51200"/>
         <param name="start_range_meters" value="0"/>
         <param name="end_range_meters" value="35"/>
-        <param name="num_data_points" value="200"/>
-        <param name="speed_of_sound" value="1500"/>
+        <param name="num_data_points" value="1200"/>
+        <param name="speed_of_sound" value="1535"/>
         <param name="frame_id" value="$(arg frame_id)"/>
     </node>
 
     <!-- Raw data parser-->
     <node name="omniscan_parser_node" pkg="cerulean_sonar_ros" type="omniscan450c_parser_node.py" output="screen">
         <param name="frame_id" value="$(arg frame_id)"/>
+        <param name="sampling" value="1.0"/>
+        <param name="min_db" value="5.0"/>
+        <param name="max_db" value="100.0"/>
+        <param name="gamma" value="1.5"/>
     </node>
 
     <!-- Projector-->
     <node name="omniscan_mapper_node" pkg="cerulean_sonar_ros" type="omniscan450c_mapper_node.py" output="screen">
+        <param name="nadir_removal_range" value="3.0"/>
         <param name="world_frame_id" value="local"/>
         <param name="resolution" value="0.25"/>
-        <param name="publish_rate_hz" value="2"/>
+        <param name="publish_rate_hz" value="1"/>
     </node>
 
 </launch>

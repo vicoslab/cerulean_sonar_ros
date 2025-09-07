@@ -16,6 +16,7 @@ class O450CDriver:
 
 		rospy.init_node('o450c_socker_driver_node')
 
+		self.enabled = True
 		self.param_ip = rospy.get_param('~ip', '192.168.2.25')
 		self.param_port = rospy.get_param('~port', 51200)
 		self.param_frame_id = rospy.get_param('~frame_id', 'omniscan_link')
@@ -23,7 +24,6 @@ class O450CDriver:
 		self.param_min_range = rospy.get_param('~start_range_meters', 0)
 		self.param_max_range = rospy.get_param('~end_range_meters', 50)
 		self.param_num_data_points = rospy.get_param('~num_data_points', 600)
-
 		self.param_speed_of_sound = rospy.get_param('~speed_of_sound', 1515)
 
 		self.raw_pub = rospy.Publisher("/omniscan/raw", OmniscanRaw, queue_size=10)
@@ -42,7 +42,6 @@ class O450CDriver:
 
 		self.dynamic_reconfigure_server = Server(Omniscan450Config, self.reconfig_callback)
 
-		self.enabled = True
 		self.enabled_sub = rospy.Subscriber("/omniscan/enabled", Bool, self.enabled_callback)
 		self.enabled_pub = rospy.Publisher("/omniscan/enabled", Bool, queue_size=1, latch=True)
 		self.enabled_pub.publish(self.enabled)
@@ -59,13 +58,13 @@ class O450CDriver:
 			self.enabled_pub.publish(self.enabled)
 
 	def reconfig_callback(self, config, level):
-		rospy.loginfo(f"Reconfigure Request: min_range={config['min_range']}, "
-					  f"max_range={config['max_range']}, n_points={config['n_points']}, "
+		rospy.loginfo(f"Reconfigure Request: start_range_meters={config['start_range_meters']}, "
+					  f"end_range_meters={config['end_range_meters']}, num_data_points={config['num_data_points']}, "
 					  f"speed_of_sound={config['speed_of_sound']}")
 
-		self.param_min_range = config["min_range"]
-		self.param_max_range = config["max_range"]
-		self.param_num_data_points = config["n_points"]
+		self.param_min_range = config["start_range_meters"]
+		self.param_max_range = config["end_range_meters"]
+		self.param_num_data_points = config["num_data_points"]
 		self.param_speed_of_sound = config["speed_of_sound"]
 
 		self.set_speed_of_sound(self.param_speed_of_sound)
