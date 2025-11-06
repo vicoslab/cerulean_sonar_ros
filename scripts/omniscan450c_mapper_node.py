@@ -63,6 +63,7 @@ class SideScanStitcher:
 		self.enable_pub.publish(True)
 
 		rospy.Timer(rospy.Duration(1.0/self.publish_rate), self.update)
+		rospy.loginfo("Omniscan mapper ready.")
 
 	def reset_callback(self, msg):
 		rospy.loginfo("Resetting sonar map")
@@ -92,8 +93,8 @@ class SideScanStitcher:
 			# Initialize grid with requested size
 			self.origin_x = np.floor(x_min / self.resolution) * self.resolution
 			self.origin_y = np.floor(y_min / self.resolution) * self.resolution
-			self.width = int(np.ceil((x_max - self.origin_x) / self.resolution))
-			self.height = int(np.ceil((y_max - self.origin_y) / self.resolution))
+			self.width = max(1, int(np.ceil((x_max - self.origin_x) / self.resolution)))
+			self.height = max(1, int(np.ceil((y_max - self.origin_y) / self.resolution)))
 			self.grid = np.zeros((self.height, self.width), dtype=np.int16)
 			return
 
@@ -126,20 +127,6 @@ class SideScanStitcher:
 		self.origin_y = self.origin_y + new_gy_min * self.resolution
 		self.width = new_width
 		self.height = new_height
-
-	def paint_beam(self, x0, y0, x1, y1, val):
-		"""Rasterize a sonar beam from (x0,y0) -> (x1,y1) into the grid."""
-		gx0 = int(np.floor((x0 - self.origin_x) / self.resolution))
-		gy0 = int(np.floor((y0 - self.origin_y) / self.resolution))
-		gx1 = int(np.floor((x1 - self.origin_x) / self.resolution))
-		gy1 = int(np.floor((y1 - self.origin_y) / self.resolution))
-
-		points = bresenham_line(gx0, gy0, gx1, gy1)
-
-		for gx, gy in points:
-			if 0 <= gx < self.width and 0 <= gy < self.height:
-				self.grid[gy, gx] = val
-
 
 	def sonar_data_callback(self, msg):
 		if not self.mapping_enabled:
@@ -198,6 +185,7 @@ class SideScanStitcher:
 
 			if len(prev_positions) != len(positions):
 				#scan settings changed, can't interpolate
+				self.last_scan = (positions, values)
 				return
 
 			n = len(positions)
