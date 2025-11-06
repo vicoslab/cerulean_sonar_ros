@@ -11,6 +11,7 @@ class DVLSocketNode:
         
         # Get parameters
         self.ip = rospy.get_param('~ip', '192.168.2.3')
+        self.listen_ip = rospy.get_param('~listen_ip', '255.255.255.255')
         self.command_port = rospy.get_param('~command_port', 50000)
         self.listen_port = rospy.get_param('~listen_port', 27000)
         self.command_list = rospy.get_param('~command_list', ["SEND-DVKFC ON\n", "SEND-DVPDL OFF\n"])
@@ -26,7 +27,7 @@ class DVLSocketNode:
         self.listen_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.listen_sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-        self.listen_sock.bind(('255.255.255.255', self.listen_port))
+        self.listen_sock.bind((self.listen_ip, self.listen_port))
 
         # Send initial commands
         command_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
