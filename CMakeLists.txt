@@ -16,6 +16,7 @@ add_message_files(
 
 generate_dynamic_reconfigure_options(
     cfg/Omniscan450.cfg
+    cfg/S500.cfg
 )
 
 generate_messages(
