@@ -12,7 +12,7 @@ class EchosounderMap:
     def __init__(self):
         rospy.init_node("echosounder_map")
 
-        self.resolution = rospy.get_param("~resolution", 0.5)
+        self.resolution = rospy.get_param("~resolution", 2.0)
         self.world_frame = rospy.get_param("~world_frame", "local")
         self.sonar_frame = rospy.get_param("~sonar_frame", "echosounder_link")
 
@@ -26,7 +26,7 @@ class EchosounderMap:
         self.range_sub = rospy.Subscriber("echosounder/range", Range, self.range_callback)
         self.reset_sub = rospy.Subscriber("/echosounder_map/reset", Empty, self.reset_callback)
 
-        self.timer = rospy.Timer(rospy.Duration(1.0), self.publish_grid)
+        self.timer = rospy.Timer(rospy.Duration(15.0), self.publish_grid)
 
         self.updated = True
 
@@ -79,9 +79,6 @@ class EchosounderMap:
 
         self.grid_pub.publish(grid)
 
-    def run(self):
-        rospy.spin()
-
 if __name__ == "__main__":
     node = EchosounderMap()
-    node.run()
+    rospy.spin()
